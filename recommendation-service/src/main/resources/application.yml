@@ -1,0 +1,119 @@
+spring:
+  application:
+    name: recommendation-service
+
+  # Postgres — only for the outbox table.
+  # recommendation-service does NOT store products or sessions here.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/giftwise
+    username: giftwise
+    password: giftwise
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  # ─────────────────────────────────────────────────────────
+  # Kafka producer — outbox relay publishes interaction events.
+  # bootstrap-servers points to localhost for local dev.
+  # When running inside Docker, override with kafka:29092.
+  # ─────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false   # don't embed Java class names in message headers
+
+server:
+  port: 8083
+
+# ─────────────────────────────────────────────────────────
+# gRPC SERVER — recommendation-service exposes:
+#   GetRecommendations → core method, called by conversation-service
+#
+# gRPC CLIENT — calls product-service to search and fetch products
+# ─────────────────────────────────────────────────────────
+grpc:
+  server:
+    port: 9083
+    negotiation-type: plaintext
+  client:
+    product-service:
+      address: static://localhost:9084
+      negotiation-type: plaintext
+
+# ─────────────────────────────────────────────────────────
+# Claude API (Anthropic)
+# api-key → loaded from env variable ANTHROPIC_API_KEY — never hardcode this.
+# model   → claude-sonnet-4-20250514 is the right balance of quality and speed.
+# timeout-seconds → LLM calls can be slow; 30s is a safe ceiling.
+# max-tokens → cap on response length from the LLM.
+# ─────────────────────────────────────────────────────────
+giftwise:
+  claude:
+    api-key: ${ANTHROPIC_API_KEY}
+    base-url: https://api.anthropic.com
+    model: claude-sonnet-4-20250514
+    max-tokens: 1024
+    timeout-seconds: 30
+  outbox:
+    # How often the outbox relay polls for unpublished events (milliseconds)
+    poll-interval-ms: 5000
+
+# Resilience4j
+resilience4j:
+  circuitbreaker:
+    instances:
+      # Circuit breaker around Claude API HTTP calls
+      claude-api:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 2
+      # Circuit breaker around product-service gRPC calls
+      product-service:
+        sliding-window-size: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+  retry:
+    instances:
+      claude-api:
+        max-attempts: 2
+        wait-duration: 2s
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.giftwise: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.kafka: DEBUG
+    org.hibernate.SQL: DEBUG

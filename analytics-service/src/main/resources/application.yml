@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: analytics-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/giftwise
+    username: giftwise
+    password: giftwise
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  # ─────────────────────────────────────────────────────────
+  # Kafka consumer — analytics-service only consumes, never produces.
+  # group-id: each consumer group gets its own independent offset.
+  #   If you later add a second consumer (e.g. ML pipeline), give it
+  #   a different group-id so it reads all events independently.
+  # auto-offset-reset: earliest → if this service restarts, re-read
+  #   from the last committed offset (nothing lost).
+  # ─────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: analytics-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.giftwise.shared.events
+        spring.json.use.type.headers: false
+
+server:
+  port: 8085
+
+# No gRPC — analytics-service is a pure Kafka consumer + REST API.
+# It never calls or serves gRPC.
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.giftwise: DEBUG
+    org.springframework.kafka: DEBUG
+    org.hibernate.SQL: DEBUG
