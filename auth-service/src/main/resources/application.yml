@@ -50,7 +50,7 @@ grpc:
 # ─────────────────────────────────────────────────────────
 giftwise:
   jwt:
-    secret: local-dev-secret-key-change-in-production
+    secret: 7R88DjWF5544Zjc9kKLx6w8ONAD/VBKae/xnIoonMgg=
     expiration-ms: 86400000
     widget-session-expiration-ms: 7200000
 
