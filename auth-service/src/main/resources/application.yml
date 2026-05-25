@@ -13,6 +13,10 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
 
+  autoconfigure:
+    exclude:
+      - net.devh.boot.grpc.server.autoconfigure.GrpcServerSecurityAutoConfiguration
+
   jpa:
     hibernate:
       # validate — Hibernate checks the schema matches your entities but never changes it.
