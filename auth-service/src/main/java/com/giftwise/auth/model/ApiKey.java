@@ -23,5 +23,5 @@ public class ApiKey extends BaseEntity {
     private LocalDateTime lastUsedAt;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_id", nullable = false)
-    private Business businessId;
+    private Business business;
 }
