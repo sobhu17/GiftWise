@@ -24,7 +24,7 @@ public class BusinessService {
     private final JwtService jwtService;
 
     @Transactional
-    public AuthResponse register(String name, String email, String password) throws BusinessAlreadyExistsException {
+    public AuthResponse register(String name, String email, String password) {
         if (businessRepository.findByEmail(email).isPresent()) {
             throw new BusinessAlreadyExistsException("Business already exists with email: " + email);
         }
@@ -46,7 +46,7 @@ public class BusinessService {
         return AuthResponse.from(business , token);
     }
 
-    public AuthResponse login(String email, String password) throws InvalidCredentialsException {
+    public AuthResponse login(String email, String password) {
         Business business = businessRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Business not found with email: " + email));
 
