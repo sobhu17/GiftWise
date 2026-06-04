@@ -58,6 +58,8 @@ giftwise:
   vector:
     dimensions: 1536
     top-k: 20
+  jwt:
+    secret: 7R88DjWF5544Zjc9kKLx6w8ONAD/VBKae/xnIoonMgg=
 
 # Actuator
 management:

@@ -1,7 +1,6 @@
 package com.giftwise.product.model;
 
 import com.giftwise.product.common.BaseEntity;
-import com.pgvector.PGvector;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -33,7 +32,7 @@ public class Product extends BaseEntity {
     @Column(name = "age_group", nullable = false)
     private String ageGroup;
     @Column(name = "embedding", columnDefinition = "vector(1536)")
-    private PGvector embedding;
+    private String embedding;
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
