@@ -1,4 +1,4 @@
-package com.giftwise.auth.Security;
+package com.giftwise.auth.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

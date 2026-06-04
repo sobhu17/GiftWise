@@ -1,6 +1,5 @@
-package com.giftwise.auth.service;
+package com.giftwise.shared.security;
 
-import com.giftwise.auth.model.Business;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -9,40 +8,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 public class JwtService {
     @Value("${giftwise.jwt.secret}")
     private String jwtSecret;
 
-    @Value("${giftwise.jwt.expiration-ms}")
-    private long expirationMs;
-
-    private SecretKey getSigningKey(){
+    public SecretKey getSigningKey(){
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
-    }
-
-    public String generateToken(Business business) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("businessId", business.getId().toString());
-        claims.put("businessName", business.getName());
-        claims.put("roles", business.getRoles().stream()
-                .map(role -> role.getName())
-                .toList());
-
-
-        return Jwts.builder()
-                .issuer("GiftWise")
-                .subject(business.getEmail())
-                .claims(claims)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(getSigningKey())
-                .compact();
     }
 
     public boolean validateToken(String token) {

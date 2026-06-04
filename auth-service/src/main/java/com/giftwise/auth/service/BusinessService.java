@@ -21,7 +21,7 @@ public class BusinessService {
     private final PasswordEncoder passwordEncoder;
     private final BusinessRepository businessRepository;
     private final RoleRepository roleRepository;
-    private final JwtService jwtService;
+    private final TokenService tokenService;
 
     @Transactional
     public AuthResponse register(String name, String email, String password) {
@@ -42,7 +42,7 @@ public class BusinessService {
         business.setRoles(roles);
         businessRepository.save(business);
 
-        String token = jwtService.generateToken(business);
+        String token = tokenService.generateToken(business);
         return AuthResponse.from(business , token);
     }
 
@@ -55,7 +55,7 @@ public class BusinessService {
             throw new InvalidCredentialsException("Invalid password");
         }
 
-        String token = jwtService.generateToken(business);
+        String token = tokenService.generateToken(business);
         return AuthResponse.from(business , token);
     }
 }

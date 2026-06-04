@@ -1,6 +1,6 @@
-package com.giftwise.auth.Security;
+package com.giftwise.product.security;
 
-import com.giftwise.auth.service.JwtService;
+import com.giftwise.shared.security.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,19 +8,17 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -42,16 +40,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // 4. Validate and set authentication in Spring Security context
         if (jwtService.validateToken(token)) {
-            String email = jwtService.extractEmail(token);
-            UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+            String businessId = jwtService.extractBusinessId(token);
 
             // Build an authentication object and put it in the security context
-            // This tells Spring Security: this request is authenticated as this user
+            // This tells Spring Security: this request is authenticated with this businessId
             UsernamePasswordAuthenticationToken authToken =
                     new UsernamePasswordAuthenticationToken(
-                            userDetails,
+                            businessId,
                             null,               // credentials null — already authenticated via JWT
-                            userDetails.getAuthorities()
+                            List.of()
                     );
 
             authToken.setDetails(
@@ -65,3 +62,4 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
+

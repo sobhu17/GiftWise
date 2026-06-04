@@ -7,6 +7,7 @@ import com.giftwise.auth.exception.BusinessAlreadyExistsException;
 import com.giftwise.auth.exception.InvalidCredentialsException;
 import com.giftwise.auth.service.BusinessService;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,12 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthController {
     private final BusinessService businessService;
-
-    public AuthController(BusinessService businessService) {
-        this.businessService = businessService;
-    }
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) throws BusinessAlreadyExistsException {
