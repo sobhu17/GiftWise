@@ -27,6 +27,16 @@ public class ProductResponse {
     private boolean active;
     private LocalDateTime createdAt;
 
+    /**
+     * Map a {@link Product} entity to its REST response shape.
+     * <p>
+     * Deliberately omits {@code embedding} — sending 1536 floats over REST to a business
+     * dashboard would be wasteful and the field is meaningless to API consumers; it only
+     * matters internally for vector search.
+     *
+     * @param product : the persisted entity to convert
+     * @return a response DTO containing every client-facing field of {@code product}
+     */
     public  static ProductResponse from(Product product) {
         return ProductResponse.builder()
                 .id(product.getId())

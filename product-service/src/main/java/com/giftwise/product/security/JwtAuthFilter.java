@@ -20,6 +20,21 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
+    /**
+     * Validate the request's bearer token (if present) and, on success, populate the
+     * Spring Security context with the business id extracted from its claims.
+     * <p>
+     * Runs once per request, before {@code SecurityConfig}'s authorization rules are evaluated.
+     * A missing/invalid token is not rejected here — the filter always calls
+     * {@code filterChain.doFilter}; it's {@code SecurityConfig}'s {@code authorizeHttpRequests}
+     * rules that decide whether the (now possibly still-unauthenticated) request may proceed.
+     * The {@code businessId} string becomes the authentication principal — there's no
+     * {@code UserDetails}/{@code Business} entity here, product-service only needs the id.
+     *
+     * @param request     : the incoming HTTP request, inspected for an {@code Authorization} header
+     * @param response    : the HTTP response, passed through untouched to the next filter
+     * @param filterChain : the remaining filter chain, always invoked exactly once
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
