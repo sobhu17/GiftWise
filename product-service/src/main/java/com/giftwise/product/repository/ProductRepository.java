@@ -14,10 +14,52 @@ import java.util.UUID;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, UUID> {
+
+    /**
+     * Fetch every product for a business, active and inactive — feeds the dashboard's
+     * full catalog view.
+     *
+     * @param businessId : id of the owning business
+     * @return all products belonging to {@code businessId}, regardless of active status
+     */
     List<Product> findAllByBusinessId(UUID businessId);
+
+    /**
+     * Fetch only active products for a business — feeds the gRPC search path consumed
+     * by recommendation-service, which should never surface deactivated products.
+     *
+     * @param businessId : id of the owning business
+     * @return active products belonging to {@code businessId}
+     */
     List<Product> findAllByBusinessIdAndIsActiveTrue(UUID businessId);
+
+    /**
+     * Fetch a single product, scoped to its owning business in the same query — combines
+     * the existence check and the ownership check so a business can never reach another
+     * business's product, even by id.
+     *
+     * @param id         : id of the product to fetch
+     * @param businessId : id of the business that must own this product
+     * @return the matching product, or empty if it doesn't exist or belongs to another business
+     */
     Optional<Product> findByIdAndBusinessId(UUID id , UUID businessId);
 
+    /**
+     * Semantic similarity search: rank a business's active products by cosine distance
+     * between their stored embedding and a query embedding.
+     * <p>
+     * Native SQL is required because {@code <->} (cosine distance) and the {@code vector}
+     * type are pgvector-specific — JPQL has no concept of either. The query embedding is
+     * passed as a {@code String} and cast to {@code vector} inside the SQL itself, since
+     * Spring Data can't bind a {@code PGvector}/{@code float[]} as a native query parameter.
+     * Scalar filters ({@code business_id}, {@code is_active}) run first to shrink the
+     * candidate set before the (more expensive) vector ordering kicks in.
+     *
+     * @param businessId : id of the business whose catalog to search
+     * @param embedding  : the query embedding, formatted as pgvector text e.g. {@code "[0.1, 0.2, ...]"}
+     * @param limit      : maximum number of results to return (top-K nearest neighbors)
+     * @return the business's active products closest in meaning to {@code embedding}, nearest first
+     */
     @Query(value = """
     SELECT * FROM products
     WHERE business_id = :businessId
@@ -31,14 +73,36 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
             @Param("limit") int limit
     );
 
+    /**
+     * Insert a new product row with an explicit embedding value via native SQL.
+     * <p>
+     * Required because the {@code embedding} column is {@code NOT NULL vector(1536)} and plain
+     * {@code save()} cannot supply a placeholder vector for a field Hibernate doesn't manage as
+     * a first-class type. {@code ProductService.insertProduct} passes a zero-vector here; the
+     * real embedding is written moments later by {@link #updateEmbedding}.
+     * {@code clearAutomatically = true} evicts the persistence context so a subsequent
+     * {@code findById} reads the row this statement just wrote, not a stale cached entity.
+     *
+     * @param id          : pre-generated id for the new product (generated in the service, not the DB)
+     * @param businessId  : id of the business that owns this product
+     * @param name        : product name
+     * @param description : product description
+     * @param price       : product price
+     * @param imageUrl    : URL of the product image
+     * @param category    : product category, used as a scalar filter in search
+     * @param occasion    : occasion this product suits, used as a scalar filter in search
+     * @param ageGroup    : target age group, used as a scalar filter in search
+     * @param embedding   : placeholder embedding formatted as pgvector text, cast to {@code vector} in SQL
+     * @param isActive    : initial active status (always {@code true} for a newly created product)
+     */
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query(value = """
-    INSERT INTO products 
-    (id, business_id, name, description, price, image_url, category, 
+    INSERT INTO products
+    (id, business_id, name, description, price, image_url, category,
      occasion, age_group, embedding, is_active, created_at, updated_at)
-    VALUES (:id, :businessId, :name, :description, :price, :imageUrl, 
-            :category, :occasion, :ageGroup, 
+    VALUES (:id, :businessId, :name, :description, :price, :imageUrl,
+            :category, :occasion, :ageGroup,
             CAST(:embedding AS vector), :isActive, NOW(), NOW())
     """, nativeQuery = true)
     void insertWithEmbedding(
@@ -55,15 +119,41 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
             @Param("isActive") boolean isActive
     );
 
+    /**
+     * Soft-delete: flips {@code is_active} to false rather than removing the row, scoped
+     * to the owning business so a business can only deactivate its own products.
+     *
+     * @param id         : id of the product to deactivate
+     * @param businessId : id of the business that must own this product
+     * @return number of rows updated — 0 means no matching product for this business
+     */
     @Modifying
     @Transactional
     @Query(value = "UPDATE products SET is_active = false, updated_at = NOW() WHERE id = :id AND business_id = :businessId", nativeQuery = true)
     int softDelete(@Param("id") UUID id, @Param("businessId") UUID businessId);
 
+    /**
+     * Update a product's editable fields via native SQL, scoped to the owning business.
+     * <p>
+     * Native SQL (rather than loading the entity and calling {@code save()}) keeps this
+     * update from touching the {@code embedding} column — that column is regenerated
+     * separately by {@link #updateEmbedding} once the new name/description is known.
+     *
+     * @param id          : id of the product to update
+     * @param businessId  : id of the business that must own this product
+     * @param name        : new product name
+     * @param description : new product description
+     * @param price       : new product price
+     * @param imageUrl    : new product image URL
+     * @param category    : new product category
+     * @param occasion    : new occasion value
+     * @param ageGroup    : new target age group
+     * @return number of rows updated — 0 means no matching product for this business
+     */
     @Modifying
     @Transactional
     @Query(value = """
-    UPDATE products SET 
+    UPDATE products SET
     name = :name, description = :description, price = :price,
     image_url = :imageUrl, category = :category, occasion = :occasion,
     age_group = :ageGroup, updated_at = NOW()
@@ -80,4 +170,23 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
             @Param("occasion") String occasion,
             @Param("ageGroup") String ageGroup
     );
+
+    /**
+     * Overwrite a product's stored embedding — the final step of {@link
+     * com.giftwise.product.service.EmbeddingService#generateAndSave}, run after a real
+     * embedding has been generated for the placeholder/stale vector written at insert/update time.
+     * <p>
+     * Native SQL with {@code CAST(:embedding AS vector)} for the same reason as
+     * {@link #insertWithEmbedding}: Spring Data has no binding for the pgvector type, so the
+     * value travels as text and is cast inside the SQL. {@code clearAutomatically = true}
+     * ensures the next read picks up the new embedding rather than a cached stale entity.
+     *
+     * @param id        : id of the product whose embedding to overwrite
+     * @param embedding : the freshly generated embedding, formatted as pgvector text
+     */
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query(value = "UPDATE products SET embedding = CAST(:embedding AS vector), updated_at = NOW() WHERE id = :id",
+            nativeQuery = true)
+    void updateEmbedding(@Param("id") UUID id, @Param("embedding") String embedding);
 }

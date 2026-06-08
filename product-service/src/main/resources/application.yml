@@ -60,6 +60,10 @@ giftwise:
     top-k: 20
   jwt:
     secret: 7R88DjWF5544Zjc9kKLx6w8ONAD/VBKae/xnIoonMgg=
+  openai:
+    api-key: ${OPENAI_API_KEY}
+    embedding-model: text-embedding-3-small
+    base-url: https://api.openai.com/v1
 
 # Actuator
 management:

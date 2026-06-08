@@ -55,7 +55,7 @@ grpc:
 # ─────────────────────────────────────────────────────────
 giftwise:
   jwt:
-    secret: 7R88DjWF5544Zjc9kKLx6w8ONAD/VBKae/xnIoonMgg=
+    secret: ${GIFTWISE_JWT_SECRET:7R88DjWF5544Zjc9kKLx6w8ONAD/VBKae/xnIoonMgg=}
     expiration-ms: 86400000
     widget-session-expiration-ms: 7200000
 
