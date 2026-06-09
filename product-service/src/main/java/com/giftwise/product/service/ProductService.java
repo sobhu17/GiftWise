@@ -171,4 +171,28 @@ public class ProductService {
                 .map(ProductResponse::from)
                 .toList();
     }
+
+
+    /**
+     * Semantic search: embed the query text and return the closest matching active products
+     * from the business's catalog, ranked by cosine distance.
+     * <p>
+     * The query is embedded using the same model ({@code text-embedding-3-small}) that
+     * produced the stored product vectors — this puts query and products in the same
+     * 1536-dimensional space so cosine distance is a meaningful similarity measure.
+     *
+     * @param query      : natural language search query from the user
+     * @param businessId : id of the authenticated business whose catalog to search
+     * @param limit      : maximum number of results to return (top-K nearest neighbors)
+     * @return the closest matching active products, nearest first, mapped to response DTOs
+     */
+    public List<ProductResponse> searchProducts(String query, UUID businessId, int limit) {
+        float[] embedding = embeddingService.callEmbeddingApi(query);
+        String vectorString = embeddingService.toVectorString(embedding);
+        return productRepository.findSimilarProducts(businessId, vectorString, limit)
+                .stream()
+                .map(ProductResponse::from)
+                .toList();
+    }
+
 }

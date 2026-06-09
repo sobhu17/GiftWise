@@ -83,6 +83,24 @@ public class ProductController {
     }
 
     /**
+     * Semantic search across the authenticated business's active product catalog.
+     * <p>
+     * The query text is embedded using the same model as the stored product embeddings,
+     * then the nearest neighbors in vector space are returned — products whose meaning
+     * is closest to the query, not just keyword matches.
+     *
+     * @param query : natural language search query, e.g. "gift for a mom who loves gardening"
+     * @param limit : maximum number of results to return; defaults to 10 if not provided
+     * @return 200 OK with the top matching products, nearest first
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<ProductResponse>> searchProducts(@RequestParam String query , @RequestParam(defaultValue = "10") int limit) {
+        UUID businessId = getAuthenticatedBusinessId();
+        return ResponseEntity.ok(productService.searchProducts(query , businessId , limit));
+    }
+
+
+    /**
      * Read the businessId that {@link com.giftwise.product.security.JwtAuthFilter} placed in the
      * security context as the authentication principal.
      * <p>

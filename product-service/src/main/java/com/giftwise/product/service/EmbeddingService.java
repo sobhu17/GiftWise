@@ -55,7 +55,7 @@ public class EmbeddingService {
      * @param inputText : the text to embed (product name + description, or a search query)
      * @return a 1536-dimension float array — the embedding model's output for {@code inputText}
      */
-    private float[] callEmbeddingApi(String inputText) {
+    public float[] callEmbeddingApi(String inputText) {
         EmbeddingRequest requestBody = new EmbeddingRequest(embeddingModel, inputText);
 
         EmbeddingResponse response = webClient.post()
@@ -85,7 +85,7 @@ public class EmbeddingService {
      * @param embedding : the raw embedding returned by the embedding API
      * @return the embedding formatted as pgvector's textual vector representation
      */
-    private String toVectorString(float[] embedding) {
+    public String toVectorString(float[] embedding) {
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < embedding.length; i++) {
             sb.append(embedding[i]);
