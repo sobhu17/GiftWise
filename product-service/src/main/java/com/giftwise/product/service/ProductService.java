@@ -2,6 +2,7 @@ package com.giftwise.product.service;
 
 import com.giftwise.product.dto.ProductRequest;
 import com.giftwise.product.dto.ProductResponse;
+import com.giftwise.product.dto.ProductSearchRequest;
 import com.giftwise.product.exception.ProductNotFoundException;
 import com.giftwise.product.model.Product;
 import com.giftwise.product.repository.ProductRepository;
@@ -174,25 +175,30 @@ public class ProductService {
 
 
     /**
-     * Semantic search: embed the query text and return the closest matching active products
-     * from the business's catalog, ranked by cosine distance.
+     * Semantic search with optional scalar filters: embed the query text and return the
+     * closest matching active products from the business's catalog, ranked by cosine distance,
+     * narrowed by category, occasion, age group, and/or price range.
      * <p>
      * The query is embedded using the same model ({@code text-embedding-3-small}) that
      * produced the stored product vectors — this puts query and products in the same
-     * 1536-dimensional space so cosine distance is a meaningful similarity measure.
+     * 1536-dimensional space so cosine distance is a meaningful similarity measure. Any filter
+     * left {@code null} on {@code request} is skipped (see {@link
+     * ProductRepository#findSimilarProductsWithFilters}).
      *
-     * @param query      : natural language search query from the user
+     * @param request    : search query, optional filters, and result limit
      * @param businessId : id of the authenticated business whose catalog to search
-     * @param limit      : maximum number of results to return (top-K nearest neighbors)
-     * @return the closest matching active products, nearest first, mapped to response DTOs
+     * @return the closest matching active products satisfying all provided filters, nearest first,
+     * mapped to response DTOs
      */
-    public List<ProductResponse> searchProducts(String query, UUID businessId, int limit) {
-        float[] embedding = embeddingService.callEmbeddingApi(query);
+    public List<ProductResponse> searchProducts(ProductSearchRequest request, UUID businessId) {
+        float[] embedding = embeddingService.callEmbeddingApi(request.getQuery());
         String vectorString = embeddingService.toVectorString(embedding);
-        return productRepository.findSimilarProducts(businessId, vectorString, limit)
+        return productRepository.findSimilarProductsWithFilters(businessId, vectorString,
+                        request.getCategory(), request.getOccasion(),
+                        request.getAgeGroup(), request.getMinPrice(),
+                        request.getMaxPrice(), request.getLimit())
                 .stream()
                 .map(ProductResponse::from)
                 .toList();
     }
-
 }

@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,33 +46,58 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     Optional<Product> findByIdAndBusinessId(UUID id , UUID businessId);
 
     /**
-     * Semantic similarity search: rank a business's active products by cosine distance
-     * between their stored embedding and a query embedding.
+     * Semantic similarity search with optional scalar filters: rank a business's active
+     * products by cosine distance between their stored embedding and a query embedding,
+     * narrowed by category, occasion, age group, and/or price range.
      * <p>
      * Native SQL is required because {@code <->} (cosine distance) and the {@code vector}
      * type are pgvector-specific — JPQL has no concept of either. The query embedding is
      * passed as a {@code String} and cast to {@code vector} inside the SQL itself, since
      * Spring Data can't bind a {@code PGvector}/{@code float[]} as a native query parameter.
-     * Scalar filters ({@code business_id}, {@code is_active}) run first to shrink the
-     * candidate set before the (more expensive) vector ordering kicks in.
+     * Each filter uses the {@code (:param IS NULL OR column = :param)} pattern so a caller
+     * can pass {@code null} to skip that filter entirely — with every filter {@code null},
+     * this query behaves identically to an unfiltered semantic search. Scalar filters run
+     * first to shrink the candidate set before the (more expensive) vector ordering kicks in.
      *
      * @param businessId : id of the business whose catalog to search
      * @param embedding  : the query embedding, formatted as pgvector text e.g. {@code "[0.1, 0.2, ...]"}
+     * @param category   : exact category to filter on, or {@code null} to skip this filter
+     * @param occasion   : exact occasion to filter on, or {@code null} to skip this filter
+     * @param ageGroup   : exact age group to filter on, or {@code null} to skip this filter
+     * @param minPrice   : minimum price (inclusive), or {@code null} to skip this filter
+     * @param maxPrice   : maximum price (inclusive), or {@code null} to skip this filter
      * @param limit      : maximum number of results to return (top-K nearest neighbors)
-     * @return the business's active products closest in meaning to {@code embedding}, nearest first
+     * @return the business's active products matching all provided filters, closest in meaning
+     * to {@code embedding} first
      */
     @Query(value = """
     SELECT * FROM products
     WHERE business_id = :businessId
     AND is_active = true
+    AND (:category IS NULL OR category = :category)
+    AND (:occasion IS NULL OR occasion = :occasion)
+    AND (:ageGroup IS NULL OR age_group = :ageGroup)
+    AND (:minPrice IS NULL OR price >= :minPrice)
+    AND (:maxPrice IS NULL OR price <= :maxPrice)
     ORDER BY embedding <-> CAST(:embedding AS vector)
     LIMIT :limit
     """, nativeQuery = true)
-    List<Product> findSimilarProducts(
+    List<Product> findSimilarProductsWithFilters(
             @Param("businessId") UUID businessId,
             @Param("embedding") String embedding,
+            @Param("category") String category,
+            @Param("occasion") String occasion,
+            @Param("ageGroup") String ageGroup,
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
             @Param("limit") int limit
     );
+
+
+
+
+
+
 
     /**
      * Insert a new product row with an explicit embedding value via native SQL.

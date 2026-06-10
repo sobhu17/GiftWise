@@ -2,6 +2,7 @@ package com.giftwise.product.controller;
 
 import com.giftwise.product.dto.ProductRequest;
 import com.giftwise.product.dto.ProductResponse;
+import com.giftwise.product.dto.ProductSearchRequest;
 import com.giftwise.product.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -83,20 +84,22 @@ public class ProductController {
     }
 
     /**
-     * Semantic search across the authenticated business's active product catalog.
+     * Semantic search across the authenticated business's active product catalog, with
+     * optional filters.
      * <p>
      * The query text is embedded using the same model as the stored product embeddings,
      * then the nearest neighbors in vector space are returned — products whose meaning
-     * is closest to the query, not just keyword matches.
+     * is closest to the query, not just keyword matches. {@code category}, {@code occasion},
+     * {@code ageGroup}, {@code minPrice}, and {@code maxPrice} on {@code request} are all
+     * optional — any left unset are skipped.
      *
-     * @param query : natural language search query, e.g. "gift for a mom who loves gardening"
-     * @param limit : maximum number of results to return; defaults to 10 if not provided
-     * @return 200 OK with the top matching products, nearest first
+     * @param request : search query, optional filters, and result limit, bound from query parameters
+     * @return 200 OK with the top matching products satisfying all provided filters, nearest first
      */
     @GetMapping("/search")
-    public ResponseEntity<List<ProductResponse>> searchProducts(@RequestParam String query , @RequestParam(defaultValue = "10") int limit) {
+    public ResponseEntity<List<ProductResponse>> searchProducts(@ModelAttribute @Valid ProductSearchRequest request) {
         UUID businessId = getAuthenticatedBusinessId();
-        return ResponseEntity.ok(productService.searchProducts(query , businessId , limit));
+        return ResponseEntity.ok(productService.searchProducts(request , businessId));
     }
 
 
