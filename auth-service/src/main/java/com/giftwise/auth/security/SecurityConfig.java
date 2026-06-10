@@ -15,6 +15,19 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
 
+    /**
+     * Define auth-service's HTTP security rules: stateless JWT auth, CSRF disabled,
+     * and which endpoints require an authenticated business.
+     * <p>
+     * {@code /auth/register}, {@code /auth/login}, and {@code /actuator/health} are public —
+     * everything else (e.g. {@code /api-keys/**}) requires a valid bearer token, validated by
+     * {@link JwtAuthFilter} which runs ahead of Spring's default username/password filter
+     * in the chain.
+     *
+     * @param http : Spring Security's HTTP configuration builder
+     * @return the assembled filter chain enforcing the rules above
+     * @throws Exception if the security configuration fails to build
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http

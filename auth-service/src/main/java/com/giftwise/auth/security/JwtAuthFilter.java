@@ -22,6 +22,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
+    /**
+     * Validate the request's bearer token (if present) and, on success, populate the
+     * Spring Security context with the authenticated {@code Business}.
+     * <p>
+     * Runs once per request, before {@code SecurityConfig}'s authorization rules are evaluated.
+     * A missing/invalid token is not rejected here — the filter always calls
+     * {@code filterChain.doFilter}; it's {@code SecurityConfig}'s {@code authorizeHttpRequests}
+     * rules that decide whether the (now possibly still-unauthenticated) request may proceed.
+     * Unlike product-service's filter, this one loads the full {@code Business} via
+     * {@code UserDetailsService} (keyed by the email in the token) so its roles are
+     * available as authorities — auth-service is the one service that authenticates users.
+     *
+     * @param request     : the incoming HTTP request, inspected for an {@code Authorization} header
+     * @param response    : the HTTP response, passed through untouched to the next filter
+     * @param filterChain : the remaining filter chain, always invoked exactly once
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,

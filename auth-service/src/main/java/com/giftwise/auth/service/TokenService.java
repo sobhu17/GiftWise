@@ -19,6 +19,13 @@ public class TokenService {
     @Value("${giftwise.jwt.expiration-ms}")
     private long expirationMs;
 
+    /**
+     * Generate a signed JWT for a business, embedding its id, name, and roles as claims so
+     * downstream services can authorize requests without a database lookup.
+     *
+     * @param business : the authenticated business to issue a token for
+     * @return a signed JWT, valid for {@code giftwise.jwt.expiration-ms} milliseconds
+     */
     public String generateToken(Business business) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("businessId", business.getId().toString());
