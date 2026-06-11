@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package com.giftwise.product.grpc;
+
+import "google/protobuf/timestamp.proto";
+
+option java_package = "com.giftwise.product.grpc";
+option java_multiple_files = true;
+
+/**
+ * Semantic search request: a free-text query plus optional scalar filters.
+ * Mirrors the REST ProductSearchRequest DTO. Optional fields use proto3
+ * `optional` so the server can distinguish "not set" (skip this filter)
+ * from an explicit empty/zero value.
+ */
+message ProductSearchRequest{
+  // Free-text description of what the recipient wants, embedded and
+  // compared against stored product embeddings via cosine distance.
+  string query = 1;
+
+  // Exact category to filter on. Unset = no category filter.
+  optional string category = 2;
+
+  // Exact occasion to filter on. Unset = no occasion filter.
+  optional string occasion = 3;
+
+  // Exact age group to filter on. Unset = no age group filter.
+  optional string age_group = 4;
+
+  // Minimum price (inclusive), formatted as a decimal string. Unset = no lower bound.
+  optional string min_price = 5;
+
+  // Maximum price (inclusive), formatted as a decimal string. Unset = no upper bound.
+  optional string max_price = 6;
+
+  // Maximum number of results to return. 0 = caller did not set it;
+  // the server applies its own default in that case.
+  int32 limit = 7;
+}
+
+/**
+ * A single product, returned by SearchProducts and GetProduct.
+ * Mirrors the REST ProductResponse DTO, but is a distinct type — gRPC callers
+ * never see ProductResponse, and REST callers never see this message.
+ */
+message Product{
+  // Product id, formatted as a UUID string (proto has no native UUID type).
+  string id = 1;
+
+  string name = 2;
+
+  // Owning business's id, formatted as a UUID string.
+  string business_id = 3;
+
+  string description = 4;
+
+  // Price formatted as a decimal string to avoid floating-point precision loss.
+  string price = 5;
+
+  string image_url = 6;
+
+  string category = 7;
+
+  string occasion = 8;
+
+  string age_group = 9;
+
+  // Whether this product is active (soft-delete flag).
+  bool active = 10;
+
+  // Creation timestamp, using protobuf's well-known Timestamp type.
+  google.protobuf.Timestamp created_at = 11;
+}
+
+/**
+ * Response for SearchProducts: matching products ordered by similarity
+ * to the query, nearest first.
+ */
+message ProductSearchResponse{
+  repeated Product products = 1;
+}
+
+/**
+ * Request for GetProduct: fetch a single product, scoped to its owning
+ * business (no JWT/SecurityContext available over gRPC, so business_id
+ * must be passed explicitly).
+ */
+message GetProductRequest{
+  // Id of the product to fetch, formatted as a UUID string.
+  string id = 1;
+
+  // Id of the business that must own this product, formatted as a UUID string.
+  string business_id = 2;
+}
+
+/**
+ * gRPC contract exposed by product-service for internal service-to-service
+ * calls. Writes (create/update/delete) stay on REST, JWT-authenticated by
+ * the owning business — no service writes to another service's catalog
+ * over gRPC.
+ */
+service ProductGrpcService {
+  // Embed the query and return the closest matching active products,
+  // narrowed by any filters provided.
+  rpc SearchProducts(ProductSearchRequest) returns (ProductSearchResponse);
+
+  // Fetch a single product by id, scoped to its owning business.
+  rpc GetProduct(GetProductRequest) returns (Product);
+}
