@@ -12,6 +12,8 @@ option java_multiple_files = true;
  * Mirrors the REST ProductSearchRequest DTO. Optional fields use proto3
  * `optional` so the server can distinguish "not set" (skip this filter)
  * from an explicit empty/zero value.
+ * business_id is required — gRPC has no JWT/SecurityContext, so the caller
+ * must pass it explicitly to scope the search to the right catalog.
  */
 message ProductSearchRequest{
   // Free-text description of what the recipient wants, embedded and
@@ -36,6 +38,8 @@ message ProductSearchRequest{
   // Maximum number of results to return. 0 = caller did not set it;
   // the server applies its own default in that case.
   int32 limit = 7;
+
+  string business_id = 8;
 }
 
 /**
