@@ -94,11 +94,6 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     );
 
 
-
-
-
-
-
     /**
      * Insert a new product row with an explicit embedding value via native SQL.
      * <p>
