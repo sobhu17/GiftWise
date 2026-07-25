@@ -35,5 +35,4 @@ public class Product extends BaseEntity {
     private String embedding;
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
-
 }
