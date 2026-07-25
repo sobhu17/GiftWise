@@ -27,6 +27,9 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    table: flyway_schema_history_recommendation
+    baseline-on-migrate: true
+    baseline-version: 0
 
   # ─────────────────────────────────────────────────────────
   # Kafka producer — outbox relay publishes interaction events.
