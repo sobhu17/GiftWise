@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package com.giftwise.recommendation.grpc;
+
+import "product.proto";
+
+option java_package = "com.giftwise.recommendation.grpc";
+option java_multiple_files = true;
+
+/**
+ * Who said a given line in the conversation. Needed so Claude (and any
+ * prompt-building code) can tell the end user's own statements about the
+ * recipient apart from the assistant's own clarifying questions/replies —
+ * without it, persona extraction can't tell "she loves hiking" (signal)
+ * from "what's your budget?" (not signal).
+ */
+enum Role {
+  USER = 0;
+  ASSISTANT = 1;
+}
+
+/**
+ * A single turn in the conversation. Order within the enclosing
+ * `repeated ConversationTurn` field already preserves sequence, so no
+ * timestamp is needed here.
+ */
+message ConversationTurn {
+  Role role = 1;
+
+  string content = 2;
+}
+
+/**
+ * Structured summary of who the gift is for, extracted by Claude from raw
+ * conversation text. Every field except `interests` is `optional` because
+ * a real conversation may simply never mention it (e.g. no budget given) —
+ * that's "not set", distinct from an explicit empty value.
+ * Used both as input (the prior/partial profile built up over earlier
+ * turns) and output (the same profile, merged/updated with this turn's
+ * new information).
+ */
+message RecipientProfile {
+  // Recipient's relation to the end user (e.g. sister, coworker, spouse).
+  // Not used as a product-service filter — kept for ranking/explanation.
+  optional string relationship = 1;
+
+  // Free-text interests/hobbies, kept as a list (not one blob) so callers
+  // can inspect or recombine individual interests later.
+  repeated string interests = 2;
+
+  optional string occasion = 3;
+
+  optional string age_group = 4;
+
+  // Formatted as decimal strings, same rationale as ProductSearchRequest:
+  // avoids floating-point precision loss.
+  optional string min_price = 5;
+
+  optional string max_price = 6;
+}
+
+/**
+ * Request for GetRecommendations, sent by conversation-service once per
+ * chat turn.
+ */
+message RecommendationRequest {
+  // Correlation id only — recommendation-service doesn't look anything up
+  // by it, conversation-service owns the Redis session state.
+  string session_id = 1;
+
+  // No JWT/SecurityContext over gRPC, so business_id must be passed
+  // explicitly — same rule as ProductSearchRequest.
+  string business_id = 2;
+
+  repeated ConversationTurn conversation_history = 3;
+
+  // Prior/partial profile built from earlier turns, if any. May have unset
+  // fields — this call's job is to fill in/update them, not start over.
+  RecipientProfile recipient_profile = 4;
+}
+
+/**
+ * Response for GetRecommendations: ranked products, an explanation, and the
+ * updated recipient profile so conversation-service can persist it back to
+ * Redis for the next turn's request.
+ */
+message RecommendationResponse {
+  // Reused from product.proto rather than redefined — gRPC callers of this
+  // service see the exact same Product shape product-service returns.
+  repeated com.giftwise.product.grpc.Product products = 1;
+
+  string explanation = 2;
+
+  // The merge of the request's recipient_profile with anything new learned
+  // from this turn's conversation.
+  RecipientProfile updated_recipient_profile = 3;
+}
+
+/**
+ * gRPC contract exposed by recommendation-service. conversation-service is
+ * the only caller — this is the "intelligence core" step in the request
+ * flow, invoked once per chat turn after the user's message is appended to
+ * the session.
+ */
+service RecommendationGrpcService {
+  rpc GetRecommendations(RecommendationRequest) returns (RecommendationResponse);
+}
