@@ -79,6 +79,8 @@ giftwise:
   outbox:
     # How often the outbox relay polls for unpublished events (milliseconds)
     poll-interval-ms: 5000
+  product:
+    search-limit: 10
 
 # Resilience4j
 resilience4j:
